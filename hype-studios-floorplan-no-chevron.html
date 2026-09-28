@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hype Studios — Interactive Floor Plan</title>
+
+  <style>
+    :root{
+      --panel: rgba(14,14,16,.82);
+      --panel-2: rgba(255,255,255,.06);
+      --line: rgba(255,255,255,.12);
+      --text: #f5f5f5;
+      --muted: #b7b7bc;
+      --accent: #d8b17a;
+      --danger: #e57373;
+      --ok: #9ad18b;
+      --shadow: 0 16px 40px rgba(0,0,0,.34);
+    }
+    *{box-sizing:border-box}
+    html,body{
+      width:100%;
+      height:100%;
+      margin:0;
+      overflow:hidden;
+      background:#0e0f11;
+      color:var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    canvas{display:block}
+    #labels{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:3;
+    }
+    .panel{
+      position:fixed;
+      z-index:20;
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:18px;
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    #controls{
+      top:18px;
+      left:18px;
+      width:min(390px, calc(100vw - 36px));
+      padding:0;
+      overflow:hidden;
+    }
+    .controls-toggle{
+      width:100%;
+      min-height:54px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      padding:14px 16px;
+      border:0;
+      border-radius:0;
+      background:transparent;
+      box-shadow:none;
+      text-align:left;
+    }
+    .controls-toggle:hover{
+      background:rgba(255,255,255,.045);
+      transform:none;
+    }
+    .controls-toggle-title{
+      font-size:17px;
+      line-height:1.1;
+      font-weight:760;
+      letter-spacing:.065em;
+    }
+    .controls-toggle-action{
+      display:inline-flex;
+      align-items:center;
+      gap:0;
+      padding:7px 11px;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:999px;
+      background:rgba(255,255,255,.055);
+      color:#fff;
+      font-size:9px;
+      font-weight:700;
+      letter-spacing:.10em;
+      white-space:nowrap;
+      transition:background .2s ease, border-color .2s ease, transform .2s ease;
+    }
+    .controls-toggle:hover .controls-toggle-action{
+      background:rgba(255,255,255,.10);
+      border-color:rgba(216,177,122,.35);
+    }
+    #controlsDrop{
+      display:grid;
+      grid-template-rows:1fr;
+      opacity:1;
+      transition:grid-template-rows .3s ease, opacity .2s ease;
+    }
+    #controlsDrop > div{
+      overflow:hidden;
+    }
+    #controls.collapsed #controlsDrop{
+      grid-template-rows:0fr;
+      opacity:0;
+    }
+    .controls-content{
+      padding:0 16px 16px;
+    }
+    #controls p{
+      margin:0;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.55;
+    }
+    .meta-row{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin:10px 0 14px;
+    }
+    .meta-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      border:1px solid var(--line);
+      background:var(--panel-2);
+      padding:7px 10px;
+      border-radius:999px;
+      font-size:11px;
+      color:#fff;
+    }
+    .meta-pill .dot{
+      width:8px;
+      height:8px;
+      border-radius:999px;
+      background:var(--accent);
+      display:inline-block;
+      box-shadow:0 0 12px rgba(216,177,122,.65);
+    }
+    .button-grid{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+    button{
+      appearance:none;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:#fff;
+      border-radius:999px;
+      padding:9px 12px;
+      font:600 11px/1 system-ui;
+      letter-spacing:.03em;
+      cursor:pointer;
+      transition:.2s ease;
+    }
+    button:hover{
+      background:rgba(255,255,255,.12);
+      transform:translateY(-1px);
+    }
+    button.active{
+      border-color:rgba(216,177,122,.6);
+      box-shadow: inset 0 0 0 1px rgba(216,177,122,.25);
+      background:rgba(216,177,122,.12);
+    }
+    #info{
+      top:18px;
+      right:18px;
+      width:min(300px, calc(100vw - 36px));
+      padding:16px;
+      display:none;
+    }
+    .eyebrow{
+      margin:0 0 6px;
+      color:var(--accent);
+      font-size:10px;
+      font-weight:700;
+      letter-spacing:.16em;
+      text-transform:uppercase;
+    }
+    #info h2{
+      margin:0 0 8px;
+      font-size:20px;
+      line-height:1.12;
+    }
+    #info .dims{
+      margin:0 0 8px;
+      font-size:13px;
+      color:#fff;
+      font-weight:650;
+    }
+    #info .body{
+      margin:0;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.58;
+    }
+    #info .info-actions{
+      display:flex;
+      gap:8px;
+      margin-top:14px;
+      flex-wrap:wrap;
+    }
+    #mini-help{
+      left:18px;
+      bottom:18px;
+      padding:12px 14px;
+      font-size:11px;
+      color:var(--muted);
+      max-width:340px;
+      line-height:1.5;
+    }
+    #mini-help strong{color:#fff}
+    #status{
+      position:fixed;
+      bottom:18px;
+      right:18px;
+      z-index:20;
+      font-size:11px;
+      padding:10px 12px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(12,12,14,.68);
+      color:#fff;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .room-label{
+      color:#fff;
+      text-align:center;
+      font-weight:700;
+      font-size:12px;
+      line-height:1.12;
+      letter-spacing:.01em;
+      text-shadow:
+        0 2px 5px rgba(0,0,0,.95),
+        0 0 2px rgba(0,0,0,.95),
+        0 0 12px rgba(0,0,0,.5);
+      white-space:pre-line;
+      user-select:none;
+      transition: opacity .2s ease;
+    }
+    .room-label.small{font-size:10px}
+    .room-label.dim{font-size:11px; font-weight:650}
+    .room-label.dark{
+      color:#171717;
+      text-shadow:
+        0 1px 3px rgba(255,255,255,.6),
+        0 0 1px rgba(255,255,255,.6);
+    }
+    @media(max-width:760px){
+      #controls{width:calc(100vw - 24px);left:12px;top:12px}
+      #info{width:calc(100vw - 24px);right:12px;top:auto;bottom:70px}
+      #mini-help{left:12px;right:12px;bottom:12px;max-width:none}
+      #status{right:12px;bottom:12px}
+      .controls-toggle-title{font-size:15px}
+      .controls-toggle-action{padding:6px 9px;font-size:8px}
+    }
+  </style>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <div id="controls" class="panel">
+    <button id="controlsToggle" class="controls-toggle" type="button" aria-expanded="true" aria-controls="controlsDrop">
+      <span class="controls-toggle-title">HYPE STUDIOS</span>
+      <span class="controls-toggle-action">
+        <span id="controlsToggleText">HIDE</span>
+      </span>
+    </button>
+
+    <div id="controlsDrop">
+      <div>
+        <div class="controls-content">
+          <p>Interactive 3D layout for quick review. Click a room to inspect it, click a door to open or close it, and use the view buttons to navigate.</p>
+
+          <div class="meta-row">
+            <div class="meta-pill"><span class="dot"></span> 14,000 SQ FT</div>
+            <div class="meta-pill">130 FT WIDTH</div>
+            <div class="meta-pill">50 FT DEPTH</div>
+          </div>
+
+          <div class="button-grid">
+            <button id="topViewBtn">TOP VIEW</button>
+            <button id="angledViewBtn">ANGLED VIEW</button>
+            <button id="labelsBtn" class="active">TOGGLE LABELS</button>
+            <button id="rotateBtn">AUTO ROTATE</button>
+            <button id="resetBtn">RESET</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="info" class="panel">
+    <div class="eyebrow">Selected Space</div>
+    <h2 id="infoName"></h2>
+    <p class="dims" id="infoDims"></p>
+    <p class="body" id="infoText"></p>
+    <div class="info-actions">
+      <button id="focusBtn">FOCUS ROOM</button>
+      <button id="closeInfoBtn">CLOSE</button>
+    </div>
+  </div>
+
+  <div id="mini-help" class="panel">
+    <strong>Controls:</strong> Left drag to orbit · Right drag to pan · Wheel to zoom · Click doors to open / close · Double click a room to focus.
+  </div>
+
+  <div id="status">Ready</div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+    // ------------------------------------------------------------
+    // Scene / Camera / Renderer
+    // ------------------------------------------------------------
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0e0f11);
+    scene.fog = new THREE.Fog(0x0e0f11, 130, 220);
+
+    const camera = new THREE.PerspectiveCamera(47, innerWidth / innerHeight, 0.1, 500);
+    camera.position.set(67, 82, 79);
+
+    const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.02;
+    renderer.domElement.style.touchAction = 'none';
+    document.body.appendChild(renderer.domElement);
+
+    const labelRenderer = new CSS2DRenderer();
+    labelRenderer.setSize(innerWidth, innerHeight);
+    labelRenderer.domElement.id = 'labels';
+    document.body.appendChild(labelRenderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = .065;
+    controls.target.set(66, 0, 24);
+    controls.minDistance = 38;
+    controls.maxDistance = 190;
+    controls.maxPolarAngle = Math.PI / 2 - 0.025;
+    controls.autoRotate = false;
+    controls.autoRotateSpeed = 0.55;
+
+    // ------------------------------------------------------------
+    // Lighting
+    // ------------------------------------------------------------
+    scene.add(new THREE.HemisphereLight(0xf1ede7, 0x212225, 1.75));
+
+    const key = new THREE.DirectionalLight(0xfff5e6, 3.3);
+    key.position.set(46, 86, 54);
+    key.castShadow = true;
+    key.shadow.mapSize.set(4096, 4096);
+    key.shadow.camera.left = -95;
+    key.shadow.camera.right = 95;
+    key.shadow.camera.top = 80;
+    key.shadow.camera.bottom = -80;
+    key.shadow.camera.near = 1;
+    key.shadow.camera.far = 220;
+    key.shadow.bias = -0.00045;
+    scene.add(key);
+
+    const fill = new THREE.DirectionalLight(0xb7c5dd, .85);
+    fill.position.set(-40, 45, -30);
+    scene.add(fill);
+
+    const accent = new THREE.PointLight(0xd8b17a, .65, 120, 2.3);
+    accent.position.set(112, 18, 24);
+    scene.add(accent);
+
+    // ------------------------------------------------------------
+    // Materials
+    // ------------------------------------------------------------
+    function noiseTexture(base='#8d8981'){
+      const c = document.createElement('canvas');
+      c.width = c.height = 512;
+      const x = c.getContext('2d');
+      x.fillStyle = base;
+      x.fillRect(0,0,512,512);
+      for(let i=0;i<17000;i++){
+        const a = Math.random()*.14;
+        const shade = 20 + Math.floor(Math.random()*35);
+        x.fillStyle = `rgba(${shade},${shade},${shade},${a})`;
+        const s = Math.random()*2.2+.35;
+        x.fillRect(Math.random()*512, Math.random()*512, s, s);
+      }
+      const t = new THREE.CanvasTexture(c);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(7,3);
+      t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    }
+
+    const concrete = new THREE.MeshStandardMaterial({
+      color:0x8c8982,
+      map:noiseTexture(),
+      roughness:.96,
+      metalness:0
+    });
+
+    const darkRoomFloor = new THREE.MeshStandardMaterial({ color:0x413d36, roughness:.92 });
+    const blueFloor = new THREE.MeshStandardMaterial({ color:0x18242c, roughness:.93 });
+    const cycWhite = new THREE.MeshStandardMaterial({ color:0xefeeee, roughness:.83 });
+    const outerWallMat = new THREE.MeshStandardMaterial({ color:0x171717, roughness:.78 });
+    const innerWallMat = new THREE.MeshStandardMaterial({ color:0x272522, roughness:.88 });
+    const blueWallMat = new THREE.MeshStandardMaterial({ color:0x13222c, roughness:.86 });
+    const whiteWallMat = new THREE.MeshStandardMaterial({ color:0xf0efed, roughness:.82 });
+    const wood = new THREE.MeshStandardMaterial({ color:0x76502d, roughness:.58 });
+    const woodTop = new THREE.MeshStandardMaterial({ color:0x95683b, roughness:.48 });
+    const walnut = new THREE.MeshStandardMaterial({ color:0x4a3423, roughness:.6 });
+    const blackFabric = new THREE.MeshStandardMaterial({ color:0x17191a, roughness:.92 });
+    const darkMetal = new THREE.MeshStandardMaterial({ color:0x232323, roughness:.45, metalness:.62 });
+    const glass = new THREE.MeshPhysicalMaterial({
+      color:0xe9eef2,
+      roughness:.12,
+      metalness:0,
+      transmission:.44,
+      transparent:true,
+      opacity:.52,
+      side:THREE.DoubleSide
+    });
+    const white = new THREE.MeshStandardMaterial({ color:0xf2f0eb, roughness:.72 });
+    const lockerMat = new THREE.MeshStandardMaterial({ color:0x494741, roughness:.78 });
+    const kitchenBarBase = new THREE.MeshStandardMaterial({ color:0x6a3510, roughness:.58 });
+    const kitchenBarTop = new THREE.MeshStandardMaterial({ color:0xd6a24e, roughness:.42 });
+    const selectionMat = new THREE.MeshBasicMaterial({
+      color:0xd8b17a,
+      transparent:true,
+      opacity:0,
+      depthWrite:false
+    });
+
+    // ------------------------------------------------------------
+    // Helpers / Groups
+    // ------------------------------------------------------------
+    const clickable = [];
+    const doorClickables = [];
+    const doorAnimations = [];
+    const labelObjects = [];
+    const statusEl = document.getElementById('status');
+    const infoEl = document.getElementById('info');
+    let selectedZone = null;
+    let hoveredZone = null;
+    let hoveredDoor = null;
+    let labelsVisible = true;
+
+    const floorGroup = new THREE.Group();
+    scene.add(floorGroup);
+
+    function box(w,h,d,mat,x,y,z,ry=0,cast=true,receive=true,parent=scene){
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+      m.position.set(x,y,z);
+      m.rotation.y = ry;
+      m.castShadow = cast;
+      m.receiveShadow = receive;
+      parent.add(m);
+      return m;
+    }
+
+    function floorRect(x1,z1,x2,z2,mat,y=.035){
+      return box(x2-x1,.07,z2-z1,mat,(x1+x2)/2,y,(z1+z2)/2,0,false,true,floorGroup);
+    }
+
+    function floorShape(points, mat, y=.06){
+      const s = new THREE.Shape();
+      s.moveTo(points[0][0], points[0][1]);
+      for(let i=1;i<points.length;i++) s.lineTo(points[i][0], points[i][1]);
+      s.closePath();
+      const g = new THREE.ShapeGeometry(s);
+      const m = new THREE.Mesh(g,mat);
+      m.rotation.x = Math.PI/2;
+      m.position.y = y;
+      m.receiveShadow = true;
+      floorGroup.add(m);
+      return m;
+    }
+
+    function wallBetween(x1,z1,x2,z2,h=10,t=.55,mat=innerWallMat){
+      const dx = x2-x1;
+      const dz = z2-z1;
+      const len = Math.hypot(dx,dz);
+      const angle = -Math.atan2(dz,dx);
+      return box(len,h,t,mat,(x1+x2)/2,h/2,(z1+z2)/2,angle,true,true);
+    }
+
+    function hWallWithGaps(x1,x2,z,gaps=[],h=10,t=.55,mat=innerWallMat){
+      const sorted = [...gaps].sort((a,b)=>a[0]-b[0]);
+      let cursor = x1;
+      for(const [a,b] of sorted){
+        if(a>cursor) wallBetween(cursor,z,a,z,h,t,mat);
+        cursor = Math.max(cursor,b);
+      }
+      if(cursor<x2) wallBetween(cursor,z,x2,z,h,t,mat);
+    }
+
+    function vWallWithGaps(x,z1,z2,gaps=[],h=10,t=.55,mat=innerWallMat){
+      const sorted = [...gaps].sort((a,b)=>a[0]-b[0]);
+      let cursor = z1;
+      for(const [a,b] of sorted){
+        if(a>cursor) wallBetween(x,cursor,x,a,h,t,mat);
+        cursor = Math.max(cursor,b);
+      }
+      if(cursor<z2) wallBetween(x,cursor,x,z2,h,t,mat);
+    }
+
+    function addLabel(text,x,y,z,klass=''){
+      const div = document.createElement('div');
+      div.className = 'room-label ' + klass;
+      div.textContent = text;
+      const label = new CSS2DObject(div);
+      label.position.set(x,y,z);
+      scene.add(label);
+      labelObjects.push(label);
+      return label;
+    }
+
+    function addZone(name, dims, text, x1, z1, x2, z2){
+      const group = new THREE.Group();
+      const hit = new THREE.Mesh(
+        new THREE.BoxGeometry(x2-x1, .28, z2-z1),
+        new THREE.MeshBasicMaterial({ transparent:true, opacity:0, depthWrite:false })
+      );
+      hit.position.set((x1+x2)/2, .4, (z1+z2)/2);
+
+      const halo = new THREE.Mesh(
+        new THREE.BoxGeometry((x2-x1)+.45, .08, (z2-z1)+.45),
+        selectionMat.clone()
+      );
+      halo.position.set((x1+x2)/2, .12, (z1+z2)/2);
+
+      group.add(hit, halo);
+      group.userData = {
+        name, dims, text,
+        focusTarget: new THREE.Vector3((x1+x2)/2, 0, (z1+z2)/2),
+        focusPosition: new THREE.Vector3((x1+x2)/2 + 14, 18, (z1+z2)/2 + 16),
+        hit, halo
+      };
+      hit.userData.zoneRef = group;
+      scene.add(group);
+      clickable.push(hit);
+      return group;
+    }
+
+    function addDoor(x,z,width,rotation=0,swing=1,label='Door'){
+      const g = new THREE.Group();
+
+      const frameL = new THREE.Mesh(new THREE.BoxGeometry(.16,8,.22),darkMetal);
+      const frameR = frameL.clone();
+      frameL.position.set(0,4,0);
+      frameR.position.set(width,4,0);
+      const top = new THREE.Mesh(new THREE.BoxGeometry(width+.16,.16,.22),darkMetal);
+      top.position.set(width/2,8,0);
+      g.add(frameL, frameR, top);
+
+      const hinge = new THREE.Group();
+      const leafMat = glass.clone();
+      leafMat.opacity = .54;
+      const leaf = new THREE.Mesh(new THREE.BoxGeometry(width,7.6,.15),leafMat);
+      leaf.position.set(width/2,3.8,0);
+      leaf.castShadow = true;
+      hinge.add(leaf);
+      const openAngle = swing * Math.PI * .33;
+      hinge.rotation.y = openAngle;
+      g.add(hinge);
+
+      const curve = new THREE.EllipseCurve(0,0,width,width,0,openAngle,false,0);
+      const pts = curve.getPoints(24).map(p => new THREE.Vector3(p.x,.09,p.y));
+      const lineMat = new THREE.LineBasicMaterial({ color:0xd8d8d8, transparent:true, opacity:.55 });
+      const line = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(pts),
+        lineMat
+      );
+      g.add(line);
+
+      // Invisible interaction volume
+      const clickMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(width + .9, 8.5, 2.6),
+        new THREE.MeshBasicMaterial({ transparent:true, opacity:0, depthWrite:false })
+      );
+      clickMesh.position.set(width/2, 4, 0);
+      g.add(clickMesh);
+
+      g.position.set(x,0,z);
+      g.rotation.y = rotation;
+
+      const doorData = {
+        group: g,
+        hinge,
+        leafMat,
+        lineMat,
+        clickMesh,
+        label,
+        openAngle,
+        currentAngle: openAngle,
+        targetAngle: openAngle,
+        isOpen: true
+      };
+      clickMesh.userData.doorRef = doorData;
+
+      doorClickables.push(clickMesh);
+      doorAnimations.push(doorData);
+      scene.add(g);
+      return doorData;
+    }
+
+    function setDoorHighlight(door, active){
+      if(!door) return;
+      door.leafMat.opacity = active ? .78 : .54;
+      door.lineMat.opacity = active ? .85 : .55;
+    }
+
+    function toggleDoor(door){
+      if(!door) return;
+      door.isOpen = !door.isOpen;
+      door.targetAngle = door.isOpen ? door.openAngle : 0;
+      setStatus(`${door.label} ${door.isOpen ? 'opened' : 'closed'}`);
+    }
+
+    function counterBetween(x1,z1,x2,z2){
+      const dx = x2-x1;
+      const dz = z2-z1;
+      const len = Math.hypot(dx,dz);
+      const ry = -Math.atan2(dz,dx);
+      box(len,3.15,2.35,wood,(x1+x2)/2,1.575,(z1+z2)/2,ry,true,true);
+      box(len+.2,.28,2.65,woodTop,(x1+x2)/2,3.28,(z1+z2)/2,ry,true,true);
+      box(len-.6,.18,.55,walnut,(x1+x2)/2,2.7,(z1+z2)/2 + .7,ry,true,true);
+    }
+
+    function kitchenCounterBetween(x1,z1,x2,z2,width=2.45){
+      const dx = x2-x1;
+      const dz = z2-z1;
+      const len = Math.hypot(dx,dz);
+      const ry = -Math.atan2(dz,dx);
+      box(len,2.75,width,kitchenBarBase,(x1+x2)/2,1.375,(z1+z2)/2,ry,true,true);
+      box(len+.18,.24,width+.18,kitchenBarTop,(x1+x2)/2,2.87,(z1+z2)/2,ry,true,true);
+    }
+
+    function sofa(x,z,w=6,d=2.6,ry=0){
+      const g = new THREE.Group();
+      const base = new THREE.Mesh(new THREE.BoxGeometry(w,1.45,d),blackFabric);
+      base.position.y = .8;
+      const back = new THREE.Mesh(new THREE.BoxGeometry(w,2.1,.45),blackFabric);
+      back.position.set(0,1.85,-d/2+.18);
+      const a1 = new THREE.Mesh(new THREE.BoxGeometry(.45,1.8,d),blackFabric);
+      const a2 = a1.clone();
+      a1.position.set(-w/2+.2,1.05,0);
+      a2.position.set(w/2-.2,1.05,0);
+      for(const m of [base,back,a1,a2]) m.castShadow = true;
+      g.add(base,back,a1,a2);
+      g.position.set(x,0,z);
+      g.rotation.y = ry;
+      scene.add(g);
+      return g;
+    }
+
+    function chair(x,z,ry=0){
+      const g = new THREE.Group();
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(1.6,.35,1.6),blackFabric);
+      seat.position.y = 1.65;
+      const back = new THREE.Mesh(new THREE.BoxGeometry(1.6,1.75,.28),blackFabric);
+      back.position.set(0,2.65,-.68);
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,1.5,10),darkMetal);
+      stem.position.y = .8;
+      const foot = new THREE.Mesh(new THREE.CylinderGeometry(.7,.7,.1,16),darkMetal);
+      foot.position.y = .08;
+      [seat,back,stem,foot].forEach(m=>m.castShadow=true);
+      g.add(seat,back,stem,foot);
+      g.position.set(x,0,z);
+      g.rotation.y = ry;
+      scene.add(g);
+      return g;
+    }
+
+    function smallGuestChair(x,z,ry=0){
+      const g = new THREE.Group();
+      const seat = new THREE.Mesh(new THREE.CylinderGeometry(.85,.9,.35,18),blackFabric);
+      seat.position.y = 1.25;
+      const back = new THREE.Mesh(new THREE.BoxGeometry(1.55,1.35,.28),blackFabric);
+      back.position.set(0,2.1,-.55);
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(.1,.1,1.1,10),darkMetal);
+      leg.position.y = .6;
+      [seat,back,leg].forEach(m=>m.castShadow=true);
+      g.add(seat,back,leg);
+      g.position.set(x,0,z);
+      g.rotation.y = ry;
+      scene.add(g);
+    }
+
+    function dimLine(x1,z1,x2,z2,label,lx,lz){
+      const mat = new THREE.LineBasicMaterial({ color:0xf3f3f3, transparent:true, opacity:.78 });
+      const line = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(x1,.12,z1),
+          new THREE.Vector3(x2,.12,z2)
+        ]),
+        mat
+      );
+      scene.add(line);
+      addLabel(label,lx,.65,lz,'dim');
+    }
+
+    function setStatus(text){
+      statusEl.textContent = text;
+    }
+
+    function showInfo(zone){
+      const d = zone.userData;
+      selectedZone = zone;
+      document.getElementById('infoName').textContent = d.name;
+      document.getElementById('infoDims').textContent = d.dims;
+      document.getElementById('infoText').textContent = d.text;
+      infoEl.style.display = 'block';
+      setStatus(`Selected: ${d.name}`);
+    }
+
+    function closeInfo(){
+      infoEl.style.display = 'none';
+      selectedZone = null;
+      setStatus('Ready');
+    }
+
+    function updateZoneHighlight(zone, opacity){
+      if(!zone) return;
+      zone.userData.halo.material.opacity = opacity;
+    }
+
+    // ------------------------------------------------------------
+    // Footprint / Floor
+    // ------------------------------------------------------------
+    floorShape([[0,0],[130,0],[138,27.5],[138,50],[0,50]], concrete, 0);
+
+    floorRect(.55,.55,14.75,15.75,blueFloor,.045);
+    floorRect(15.25,.55,46.75,15.75,darkRoomFloor,.045);
+    floorRect(47.25,.55,79.75,15.75,darkRoomFloor,.045);
+    floorRect(80.25,.55,115.75,11.75,darkRoomFloor,.045);
+
+    // Outer shell
+    wallBetween(0,0,130,0,10,.75,outerWallMat);
+    wallBetween(130,0,138,27.5,10,.75,outerWallMat);
+    wallBetween(138,27.5,138,50,10,.75,outerWallMat);
+    // Bottom outer wall is continuous again. The changing-room entrance
+    // has been moved to the upper/side wall beside the shortened clothes rack.
+    wallBetween(0,50,138,50,10,.75,outerWallMat);
+    wallBetween(0,50,0,0,10,.75,outerWallMat);
+
+    // Top-row rooms
+    wallBetween(15,0,15,16,10,.55,blueWallMat);
+    wallBetween(47,0,47,16,10,.55,innerWallMat);
+    wallBetween(80,0,80,16,10,.55,innerWallMat);
+
+    hWallWithGaps(0,15,16,[[11.7,14.2]],10,.55,blueWallMat);
+    hWallWithGaps(15,47,16,[[36.1,38.8]],10,.55,innerWallMat);
+    hWallWithGaps(47,80,16,[[61.5,64.2]],10,.55,innerWallMat);
+
+    addDoor(11.7,16,2.5,0,-1,'VIP Blue Room Door');
+    addDoor(36.1,16,2.7,0,-1,'VIP Conference Room Door');
+    addDoor(61.5,16,2.7,0,-1,'VIP Executive Office Door');
+
+    // Three 12x12 VIP rooms
+    wallBetween(80,0,80,12,10,.55,innerWallMat);
+    wallBetween(92,0,92,12,10,.55,innerWallMat);
+    wallBetween(104,0,104,12,10,.55,innerWallMat);
+    wallBetween(116,0,116,12,10,.55,innerWallMat);
+
+    hWallWithGaps(80,92,12,[[83.2,85.8]],10,.55,innerWallMat);
+    hWallWithGaps(92,104,12,[[95.2,97.8]],10,.55,innerWallMat);
+    hWallWithGaps(104,116,12,[[107.2,109.8]],10,.55,innerWallMat);
+
+    addDoor(83.2,12,2.6,0,-1,'VIP Room 1 Door');
+    addDoor(95.2,12,2.6,0,-1,'VIP Room 2 Door');
+    addDoor(107.2,12,2.6,0,-1,'VIP Room 3 Door');
+
+    // Furniture
+    floorRect(4.1,5.4,11.3,12.6,new THREE.MeshStandardMaterial({color:0x38434b,roughness:.96}),.09);
+    sofa(3.0,8.6,5.0,2.5,Math.PI/2);
+    sofa(11.9,8.6,5.0,2.5,-Math.PI/2);
+    sofa(7.5,3.4,6.3,2.3,0);
+    box(3.4,.8,2.2,walnut,7.6,.45,9.0,0,true,true);
+
+    box(14,.75,4.4,woodTop,31,2.0,8.8,0,true,true);
+    box(9.0,1.25,1.7,walnut,31,1.0,8.8,0,true,true);
+    [25,29,33,37].forEach(x=>chair(x,5.6,Math.PI));
+    [25,29,33,37].forEach(x=>chair(x,12.2,0));
+
+    box(6.8,.8,3.0,woodTop,54.8,1.8,8.2,0,true,true);
+    box(5.2,1.45,1.15,walnut,54.8,.9,8.2,0,true,true);
+    chair(54.8,11.5,0);
+    smallGuestChair(63.4,8.0,Math.PI/2);
+    smallGuestChair(67.9,8.0,-Math.PI/2);
+    box(2.6,.55,2.6,woodTop,65.7,.55,8.0,0,true,true);
+    sofa(72.8,4.7,5.1,2.4,0);
+
+    // CYC
+    const cycPts = [[24.5,26.4],[62,26.4],[62,46.4],[22,46.4],[22,30.0]];
+    floorShape(cycPts, cycWhite, .14);
+    wallBetween(24.5,26.4,62,26.4,14,.6,whiteWallMat);
+    wallBetween(22,30.0,24.5,26.4,14,.6,whiteWallMat);
+    wallBetween(22,30.0,22,46.4,14,.6,whiteWallMat);
+    wallBetween(62,26.4,62,46.4,14,.6,whiteWallMat);
+    wallBetween(22,46.4,62,46.4,.35,.35,whiteWallMat);
+
+    // ------------------------------------------------------------
+    // Kitchen + coffee bar / restroom / changing room
+    // ------------------------------------------------------------
+
+    // Kitchen + coffee bar. Both pieces share the same joint and are pulled
+    // inward from the angled exterior wall so neither counter clips outside.
+    kitchenCounterBetween(129.4,7.0,133.0,19.5,2.35);
+    kitchenCounterBetween(133.0,19.5,126.5,22.5,2.55);
+
+    // Service-space floor fills stay fully inside the main footprint.
+    floorRect(128.3,34.6,137.55,41.15,new THREE.MeshStandardMaterial({ color:0x4c4944, roughness:.96 }),.07);
+    floorRect(120.55,42.25,137.55,49.55,new THREE.MeshStandardMaterial({ color:0x4f4b46, roughness:.96 }),.07);
+
+    // RESTROOM
+    // The entrance is now on the TOP wall, matching the marked location.
+    // A real gap is cut into the wall so the door is not sitting against a closed wall.
+    hWallWithGaps(128.3,138.0,34.6,[[130.4,133.0]],9,.55,outerWallMat);
+    wallBetween(128.3,34.6,128.3,41.2,9,.55,outerWallMat);
+    wallBetween(128.3,41.2,138.0,41.2,9,.55,outerWallMat);
+    // The right side is already bounded by the main exterior shell.
+    addDoor(130.4,34.6,2.6,0,-1,'Restroom Door');
+
+    // CHANGING ROOM / VESTIBULE
+    // The changing-room door now sits on the upper/side wall in the position
+    // marked in the reference screenshot. A true opening is cut into the wall.
+    hWallWithGaps(120.5,128.9,42.2,[[121.2,123.9]],9,.55,outerWallMat);
+    wallBetween(128.9,42.2,138.0,42.2,9,.55,outerWallMat);
+    wallBetween(120.5,42.2,120.5,48.9,9,.55,outerWallMat);
+    wallBetween(128.9,42.2,128.9,50.0,9,.55,outerWallMat);
+
+    // Door swings inward into the changing-room area.
+    addDoor(121.2,42.2,2.7,0,-1,'Change Room Door');
+
+    // Shorter ribbed clothes-hanger / storage block. It begins after the door
+    // instead of running almost the full width of this vestibule.
+    const changingBlock = box(4.15,6.8,1.15,lockerMat,126.0,3.4,45.6,0,true,true);
+    for(let i=0;i<6;i++){
+      box(.1,6.25,.15,darkMetal,124.25 + i*.66,3.35,45.0,0,false,true);
+    }
+
+    // ------------------------------------------------------------
+    // Labels
+    // ------------------------------------------------------------
+    addLabel("VIP BLUE ROOM\n15' X 16'",7.5,10.8,7.1);
+    addLabel("VIP CONFERENCE ROOM\n32' X 16'",31,10.8,7.1);
+    addLabel("VIP EXECUTIVE OFFICE\n33' X 16'",63.5,10.8,7.1);
+    addLabel("VIP\n12' X 12'",86,10.8,5.1);
+    addLabel("VIP\n12' X 12'",98,10.8,5.1);
+    addLabel("VIP\n12' X 12'",110,10.8,5.1);
+
+    addLabel("CYC\n14' H",42,14.8,36.4,'dark');
+    addLabel("KITCHEN +\nCOFFEE BAR",130.0,8.5,18.6,'small');
+    addLabel("RESTROOM",133.0,9.7,37.9,'small');
+    addLabel("CHANGE\nROOM",133.2,9.7,46.2,'small');
+    addLabel("100 AMP\n120V",75.6,.8,43.5,'small dark');
+
+    // ------------------------------------------------------------
+    // Clickable Zones
+    // ------------------------------------------------------------
+    const zoneBlue = addZone("VIP Blue Room","15' × 16'","Lounge area with navy seating and a central coffee table.",0,0,15,16);
+    const zoneConference = addZone("VIP Conference Room","32' × 16'","Conference room with a long boardroom table and seating.",15,0,47,16);
+    const zoneExecutive = addZone("VIP Executive Office","33' × 16'","Executive office with desk, guest seating and lounge furniture.",47,0,80,16);
+    const zoneVip1 = addZone("VIP Room 1","12' × 12'","Private VIP room.",80,0,92,12);
+    const zoneVip2 = addZone("VIP Room 2","12' × 12'","Private VIP room.",92,0,104,12);
+    const zoneVip3 = addZone("VIP Room 3","12' × 12'","Private VIP room.",104,0,116,12);
+    const zoneCyc = addZone("CYC","40' × 20' · 14' H","White cyclorama / production area.",22,26.4,62,46.4);
+    const zoneKitchen = addZone("Kitchen + Coffee Bar","Open angled zone","L-shaped coffee bar following the angled exterior wall.",118,5,138,31);
+    const zoneRestroom = addZone("Restroom","Approx. 12' × 7'","Restroom zone at the lower-right side of the plan.",128.3,34.6,138,41.2);
+    const zoneChange = addZone("Change Room","Lower-right changing area","Changing room and adjacent locker / storage block.",120.5,42.2,138,50);
+
+    // Dimension guides
+    dimLine(0,-3.2,130,-3.2,"130 FT",65,-3.2);
+    dimLine(117.2,0,117.2,50,"50 FT",117.2,25);
+
+    // ------------------------------------------------------------
+    // Interaction
+    // ------------------------------------------------------------
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const tween = {
+      active:false,
+      fromPos:new THREE.Vector3(),
+      toPos:new THREE.Vector3(),
+      fromTarget:new THREE.Vector3(),
+      toTarget:new THREE.Vector3(),
+      start:0,
+      duration:850
+    };
+
+    function getPointer(event){
+      const r = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((event.clientX - r.left) / r.width) * 2 - 1;
+      pointer.y = -((event.clientY - r.top) / r.height) * 2 + 1;
+    }
+
+    function getInteractionsUnderPointer(event){
+      getPointer(event);
+      raycaster.setFromCamera(pointer, camera);
+
+      const doorHit = raycaster.intersectObjects(doorClickables, false)[0];
+      if(doorHit){
+        return {
+          door: doorHit.object.userData.doorRef,
+          zone: null
+        };
+      }
+
+      const zoneHit = raycaster.intersectObjects(clickable, false)[0];
+      return {
+        door: null,
+        zone: zoneHit ? zoneHit.object.userData.zoneRef : null
+      };
+    }
+
+    function flyTo(pos, target, duration=850){
+      tween.active = true;
+      tween.fromPos.copy(camera.position);
+      tween.toPos.copy(pos);
+      tween.fromTarget.copy(controls.target);
+      tween.toTarget.copy(target);
+      tween.start = performance.now();
+      tween.duration = duration;
+    }
+
+    function focusZone(zone){
+      if(!zone) return;
+      showInfo(zone);
+      flyTo(zone.userData.focusPosition, zone.userData.focusTarget, 900);
+    }
+
+    function setHoveredDoor(door){
+      if(hoveredDoor === door) return;
+      if(hoveredDoor) setDoorHighlight(hoveredDoor, false);
+      hoveredDoor = door;
+      if(hoveredDoor) setDoorHighlight(hoveredDoor, true);
+    }
+
+    function setHovered(zone){
+      if(hoveredZone === zone) return;
+      if(hoveredZone && hoveredZone !== selectedZone) updateZoneHighlight(hoveredZone, 0);
+      hoveredZone = zone;
+      if(hoveredZone && hoveredZone !== selectedZone) updateZoneHighlight(hoveredZone, .18);
+    }
+
+    renderer.domElement.addEventListener('pointermove', (e)=>{
+      const { door, zone } = getInteractionsUnderPointer(e);
+
+      if(door){
+        setHovered(null);
+        setHoveredDoor(door);
+        renderer.domElement.style.cursor = 'pointer';
+        setStatus(`Door: ${door.label} (${door.isOpen ? 'Open' : 'Closed'})`);
+        return;
+      }
+
+      setHoveredDoor(null);
+      setHovered(zone);
+      renderer.domElement.style.cursor = zone ? 'pointer' : 'grab';
+
+      if(zone){
+        setStatus(`Hover: ${zone.userData.name}`);
+      }else if(selectedZone){
+        setStatus(`Selected: ${selectedZone.userData.name}`);
+      }else{
+        setStatus('Ready');
+      }
+    });
+
+    renderer.domElement.addEventListener('click', (e)=>{
+      const { door, zone } = getInteractionsUnderPointer(e);
+
+      if(door){
+        toggleDoor(door);
+        return;
+      }
+
+      if(!zone){
+        if(selectedZone) updateZoneHighlight(selectedZone, 0);
+        selectedZone = null;
+        closeInfo();
+        return;
+      }
+
+      if(selectedZone && selectedZone !== zone) updateZoneHighlight(selectedZone, 0);
+      selectedZone = zone;
+      updateZoneHighlight(selectedZone, .28);
+      showInfo(zone);
+    });
+
+    renderer.domElement.addEventListener('dblclick', (e)=>{
+      const { zone } = getInteractionsUnderPointer(e);
+      if(zone) focusZone(zone);
+    });
+
+    document.getElementById('focusBtn').addEventListener('click', ()=>{
+      if(selectedZone) focusZone(selectedZone);
+    });
+
+    document.getElementById('closeInfoBtn').addEventListener('click', ()=>{
+      if(selectedZone) updateZoneHighlight(selectedZone, 0);
+      selectedZone = null;
+      closeInfo();
+    });
+
+    // ------------------------------------------------------------
+    // UI Buttons
+    // ------------------------------------------------------------
+    const controlsPanel = document.getElementById('controls');
+    const controlsToggle = document.getElementById('controlsToggle');
+    const controlsToggleText = document.getElementById('controlsToggleText');
+
+    controlsToggle.addEventListener('click', ()=>{
+      const collapsed = controlsPanel.classList.toggle('collapsed');
+      controlsToggle.setAttribute('aria-expanded', String(!collapsed));
+      controlsToggleText.textContent = collapsed ? 'SHOW' : 'HIDE';
+    });
+
+    const topViewBtn = document.getElementById('topViewBtn');
+    const angledViewBtn = document.getElementById('angledViewBtn');
+    const labelsBtn = document.getElementById('labelsBtn');
+    const rotateBtn = document.getElementById('rotateBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    function clearViewButtonState(){
+      [topViewBtn, angledViewBtn].forEach(btn => btn.classList.remove('active'));
+    }
+
+    topViewBtn.addEventListener('click', ()=>{
+      clearViewButtonState();
+      topViewBtn.classList.add('active');
+      flyTo(new THREE.Vector3(68,132,25), new THREE.Vector3(68,0,25), 850);
+      setStatus('Top view');
+    });
+
+    angledViewBtn.addEventListener('click', ()=>{
+      clearViewButtonState();
+      angledViewBtn.classList.add('active');
+      flyTo(new THREE.Vector3(67,82,79), new THREE.Vector3(66,0,24), 850);
+      setStatus('Angled view');
+    });
+
+    labelsBtn.addEventListener('click', ()=>{
+      labelsVisible = !labelsVisible;
+      labelObjects.forEach(l => l.element.style.display = labelsVisible ? '' : 'none');
+      labelsBtn.classList.toggle('active', labelsVisible);
+      setStatus(labelsVisible ? 'Labels visible' : 'Labels hidden');
+    });
+
+    rotateBtn.addEventListener('click', ()=>{
+      controls.autoRotate = !controls.autoRotate;
+      rotateBtn.classList.toggle('active', controls.autoRotate);
+      setStatus(controls.autoRotate ? 'Auto rotate enabled' : 'Auto rotate disabled');
+    });
+
+    resetBtn.addEventListener('click', ()=>{
+      clearViewButtonState();
+      flyTo(new THREE.Vector3(67,82,79), new THREE.Vector3(66,0,24), 900);
+      controls.autoRotate = false;
+      rotateBtn.classList.remove('active');
+      if(selectedZone) updateZoneHighlight(selectedZone, 0);
+      if(hoveredZone && hoveredZone !== selectedZone) updateZoneHighlight(hoveredZone, 0);
+      if(hoveredDoor) setDoorHighlight(hoveredDoor, false);
+      selectedZone = null;
+      hoveredZone = null;
+      hoveredDoor = null;
+      closeInfo();
+      setStatus('View reset');
+    });
+
+    angledViewBtn.classList.add('active');
+
+    // Keyboard shortcuts
+    addEventListener('keydown', (e)=>{
+      const k = e.key.toLowerCase();
+      if(k === 'l') labelsBtn.click();
+      if(k === 'r') resetBtn.click();
+      if(k === 't') topViewBtn.click();
+      if(k === 'a') angledViewBtn.click();
+      if(k === 'c') controlsToggle.click();
+      if(k === ' ') {
+        e.preventDefault();
+        rotateBtn.click();
+      }
+    });
+
+    // ------------------------------------------------------------
+    // Animation loop
+    // ------------------------------------------------------------
+    function easeInOutCubic(t){
+      return t < 0.5
+        ? 4 * t * t * t
+        : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+
+    function animate(time=0){
+      requestAnimationFrame(animate);
+
+      if(tween.active){
+        const elapsed = time - tween.start;
+        const p = Math.min(1, elapsed / tween.duration);
+        const e = easeInOutCubic(p);
+        camera.position.lerpVectors(tween.fromPos, tween.toPos, e);
+        controls.target.lerpVectors(tween.fromTarget, tween.toTarget, e);
+        if(p >= 1) tween.active = false;
+      }
+
+      doorAnimations.forEach((door)=>{
+        door.currentAngle += (door.targetAngle - door.currentAngle) * 0.16;
+        door.hinge.rotation.y = door.currentAngle;
+      });
+
+      controls.update();
+      renderer.render(scene, camera);
+      labelRenderer.render(scene, camera);
+    }
+    animate();
+
+    addEventListener('resize', ()=>{
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+      labelRenderer.setSize(innerWidth, innerHeight);
+    });
+  </script>
+</body>
+</html>
